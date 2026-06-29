@@ -18,6 +18,9 @@ An AI-powered Music Recommendation System that recommends similar songs using Ma
 The application analyzes audio features such as danceability, energy, tempo, valence, acousticness, and more to discover similar tracks using Cosine Similarity.
 
 ---
+link:
+https://music-recommendation-app-zwuhrpy43zuwkm4pexmfjb.streamlit.app/
+---
 
 ## 🚀 Features
 
