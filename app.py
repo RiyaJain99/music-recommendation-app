@@ -1,5 +1,7 @@
 import streamlit as st
 import pickle
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 
 st.set_page_config(
     page_title="AI Music Recommendation",
@@ -10,113 +12,64 @@ st.set_page_config(
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-
 * { font-family: 'Inter', sans-serif; }
-
-.stApp {
-    background: #0d0d0d;
-    color: white;
-}
-
+.stApp { background: #0d0d0d; color: white; }
 .stSelectbox > div > div {
     background: #1f1f1f !important;
     border: 1px solid #333 !important;
     color: white !important;
     border-radius: 10px !important;
 }
-
 .big {
-    font-size: 42px;
-    font-weight: 700;
-    text-align: center;
+    font-size: 42px; font-weight: 700; text-align: center;
     background: linear-gradient(135deg, #1DB954, #17a047);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin-bottom: 0px;
 }
-
-.subtitle {
-    text-align: center;
-    color: #888;
-    font-size: 16px;
-    margin-top: 4px;
-    margin-bottom: 30px;
-}
-
+.subtitle { text-align: center; color: #888; font-size: 16px; margin-top: 4px; margin-bottom: 30px; }
 .selected-song {
     background: linear-gradient(135deg, #1DB954 0%, #158a3e 100%);
-    padding: 16px 24px;
-    border-radius: 12px;
-    margin-bottom: 24px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
+    padding: 16px 24px; border-radius: 12px; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 12px;
 }
-
 .card {
-    background: #1a1a1a;
-    padding: 18px 22px;
-    border-radius: 12px;
-    border: 1px solid #2a2a2a;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    transition: border-color 0.2s;
+    background: #1a1a1a; padding: 18px 22px; border-radius: 12px;
+    border: 1px solid #2a2a2a; margin-bottom: 12px;
+    display: flex; align-items: center; justify-content: space-between;
 }
-
 .card:hover { border-color: #1DB954; }
-
-.rank {
-    font-size: 28px;
-    font-weight: 700;
-    color: #1DB954;
-    min-width: 45px;
-}
-
+.rank { font-size: 28px; font-weight: 700; color: #1DB954; min-width: 45px; }
 .song-info { flex: 1; }
-
-.song-title {
-    font-size: 17px;
-    font-weight: 600;
-    color: #ffffff;
-    margin: 0;
-}
-
-.artist-name {
-    font-size: 14px;
-    color: #aaa;
-    margin-top: 4px;
-}
-
+.song-title { font-size: 17px; font-weight: 600; color: #ffffff; margin: 0; }
+.artist-name { font-size: 14px; color: #aaa; margin-top: 4px; }
 .score-badge {
-    background: #1DB954;
-    color: black;
-    font-weight: 700;
-    font-size: 13px;
-    padding: 4px 12px;
-    border-radius: 20px;
+    background: #1DB954; color: black; font-weight: 700;
+    font-size: 13px; padding: 4px 12px; border-radius: 20px;
 }
-
 .stButton > button {
     background: linear-gradient(135deg, #1DB954, #17a047) !important;
-    color: black !important;
-    font-weight: 700 !important;
-    font-size: 16px !important;
-    border: none !important;
-    border-radius: 30px !important;
-    padding: 12px 40px !important;
-    width: 100%;
-    transition: opacity 0.2s !important;
+    color: black !important; font-weight: 700 !important; font-size: 16px !important;
+    border: none !important; border-radius: 30px !important;
+    padding: 12px 40px !important; width: 100%;
 }
-
 .stButton > button:hover { opacity: 0.85 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Load data ──────────────────────────────────────────────
-songs = pickle.load(open("songs.pkl", "rb"))
-similarity = pickle.load(open("similarity.pkl", "rb"))
+# ── Load data (cached so it only runs once) ────────────────
+@st.cache_resource
+def load_data():
+    songs = pickle.load(open("songs.pkl", "rb"))
+    scaler = pickle.load(open("scaler.pkl", "rb"))
+
+    features = ['acousticness', 'danceability', 'energy', 'instrumentalness',
+                'liveness', 'speechiness', 'tempo', 'valence']
+
+    X = songs[features].values
+    X_scaled = scaler.transform(X)
+    return songs, X_scaled
+
+songs, X_scaled = load_data()
 
 # ── Header ─────────────────────────────────────────────────
 st.markdown("<p class='big'>🎵 AI Music Recommendation</p>", unsafe_allow_html=True)
@@ -131,7 +84,11 @@ with col2:
 # ── Recommend function ──────────────────────────────────────
 def recommend(song):
     index = songs[songs["track_name"] == song].index[0]
-    distances = similarity[index]
+
+    # compute similarity only for the selected song (fast!)
+    song_vector = X_scaled[index].reshape(1, -1)
+    distances = cosine_similarity(song_vector, X_scaled)[0]
+
     song_list = sorted(enumerate(distances), reverse=True, key=lambda x: x[1])[1:6]
 
     recommendations = []
